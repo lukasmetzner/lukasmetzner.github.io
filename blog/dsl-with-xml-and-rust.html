@@ -1,0 +1,167 @@
+<html>
+  <head>
+    <title>Build a DSL with XML and Rust</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.2/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.2/highlight.min.js"></script>
+  </head>
+  <script>hljs.highlightAll();</script>
+  <body style="text-align: left; margin: auto; padding: 4em; font-family: monospace; max-width: 50em;">
+    <h1>Build a DSL with XML and Rust</h1>
+    <a target="_blank" href="https://github.com/lukasmetzner/dpdl">Github Repository</a>
+    <h2>Introduction and Entry Function</h2>
+    <p>The objective of this miniproject is to design a compact parser capable of interpreting custom-defined XML tags. This parser will generate an ordered instruction tree. As each instruction is executed, the results will seamlessly flow to the subsequent instruction, creating a pipeline-like execution flow.</p>
+    <p>The first an easy is to define a function, which will load the XML file and parse it using the <code>roxmltree</code> rust library.</p>
+    <p>The documents root element is now put into a recursive parse_children function, which will return a vector of the Instruction Enum</p>
+    <p>Ultimately, all instructions are processed using a loop. Since there's no implementation for a root instruction currently, the top-level instructions must be directly executed.</p>
+    <pre><code class="language-rust">
+        pub fn execute(path: &Path) -> Box<dyn Any> {
+            let text = fs::read_to_string(path).unwrap();
+            let doc = roxmltree::Document::parse(text.as_str()).unwrap();
+        
+            let root_element = doc.root_element();
+        
+            let instructions: Vec<Instruction> = parse_children(&root_element);
+            let mut loop_value: Box<dyn Any> = Box::new(());
+            for ele in instructions.iter() {
+                loop_value = ele.execute(loop_value);
+            }
+            loop_value
+        }
+    </code></pre>
+    <h2>Instruction Enum</h2>
+    <p>The Instruction Enum is the core data structure of the parser. It defines the different types of instructions, which can be executed. Each instruction has a corresponding execute function, which will be called by the parser.</p>
+    <pre><code class="language-rust">
+        #[derive(Debug, Clone)]
+        pub enum Instruction {
+            Input(InputInstruction),
+            Step(StepInstruction),
+            File(FileInstruction),
+            Print(PrintInstruction),
+        }
+
+        impl Instruction {
+            pub fn execute(&self, value: Box<dyn Any>) -> Box<dyn Any> {
+                match self {
+                    Instruction::Input(instruction) => instruction.execute(value),
+                    Instruction::Step(instruction) => instruction.execute(value),
+                    Instruction::File(instruction) => Box::new(instruction.execute()),
+                    Instruction::Print(instruction) => Box::new(instruction.execute(value)),
+                }
+            }
+        }
+    </code></pre>
+    <h2>Parsing Function</h2>
+    <p>The parsing function is the core part of the parser. It will recursively parse all children of a given node and return a vector of instructions. The function will also check for unknown tags and panic if one is found.</p>
+    <pre><code class="language-rust">
+        pub fn parse_children<'a, 'b>(node: &Node<'a, 'b>) -> Vec<Instruction> {
+            let mut instructions: Vec<Instruction> = Vec::new();
+            for child in node.children() {
+                if child.is_text() {
+                    continue;
+                }
+                match child.tag_name().name() {
+                    "input" => instructions.push(Instruction::Input(InputInstruction::new(child.clone()))),
+                    "step" => instructions.push(Instruction::Step(StepInstruction::new(child.clone()))),
+                    "file" => instructions.push(Instruction::File(FileInstruction::new(String::from({
+                        match child.text() {
+                            Some(val) => String::from(val),
+                            None => String::new(),
+                        }
+                    })))),
+                    "print" => instructions.push(Instruction::Print(PrintInstruction::new(String::from({
+                        match child.text() {
+                            Some(val) => String::from(val),
+                            None => String::new(),
+                        }
+                    })))),
+                    _ => panic!("unknown xml tag"),
+                }
+            }
+            instructions
+        }
+    </code></pre>
+    <h2>Different Instructions</h2>
+    <p>Each instruction has a corresponding struct, which will be used to store the instructions data. The struct will also implement the execute function, which will be called by the parser.</p>
+    <pre><code class="language-rust">
+        #[derive(Debug, Clone)]
+        pub struct InputInstruction { 
+            pub child_instructions: Vec<Instruction>,
+        }
+
+        impl InputInstruction {
+            pub fn new(child: Node<'_, '_>) -> InputInstruction {
+                InputInstruction { child_instructions: parse_children(&child), }
+            }
+
+            pub fn execute(&self, value: Box<dyn Any>) -> Box<dyn Any> {
+                let mut loop_value: Box<dyn Any> = value;
+                for ele in self.child_instructions.iter() {
+                    loop_value = ele.execute(loop_value);
+                }
+                loop_value
+            }
+        }
+
+        #[derive(Debug, Clone)]
+        pub struct StepInstruction { 
+            pub child_instructions: Vec<Instruction>,
+        }
+
+        impl StepInstruction {
+            pub fn new(child: Node<'_, '_>) -> StepInstruction {
+                StepInstruction { child_instructions: parse_children(&child), }
+            }
+
+            pub fn execute(&self, value: Box<dyn Any>) -> Box<dyn Any> {
+                let mut loop_value: Box<dyn Any> = value;
+                for ele in self.child_instructions.iter() {
+                    loop_value = ele.execute(loop_value);
+                }
+                loop_value
+            }
+        }
+
+        #[derive(Debug, Clone)]
+        pub struct FileInstruction { 
+            pub value: String,
+        }
+
+        impl FileInstruction {
+            pub fn new(value: String) -> FileInstruction {
+                FileInstruction { value }
+            }
+
+            pub fn execute(&self) -> String {
+                fs::read_to_string(self.value.clone()).unwrap()
+            }
+        }
+
+        #[derive(Debug, Clone)]
+        pub struct PrintInstruction { 
+            pub value: String,
+        }
+
+        impl PrintInstruction {
+            pub fn new(value: String) -> PrintInstruction {
+                PrintInstruction { value }
+            }
+
+            pub fn execute(&self, value: Box<dyn Any>) -> String {
+                let string_value = value.downcast_ref::<String>().unwrap().clone();
+                println!("{:?}", string_value);
+                string_value
+            }
+        }
+    </code></pre>
+  </body>
+  <style>
+    pre {
+      text-align: left;
+      margin: auto;
+      padding: 2em;
+      background-color: #f5f5f5;
+      border-radius: 0.5em;
+      max-width: 50em;
+    }
+  </style>
+</html>
