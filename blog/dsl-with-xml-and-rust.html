@@ -10,8 +10,8 @@
     <a target="_blank" href="https://github.com/lukasmetzner/dpdl">Github Repository</a>
     <h2>Introduction and Entry Function</h2>
     <p>The objective of this miniproject is to design a compact parser capable of interpreting custom-defined XML tags. This parser will generate an ordered instruction tree. As each instruction is executed, the results will seamlessly flow to the subsequent instruction, creating a pipeline-like execution flow.</p>
-    <p>The first an easy is to define a function, which will load the XML file and parse it using the <code>roxmltree</code> rust library.</p>
-    <p>The documents root element is now put into a recursive parse_children function, which will return a vector of the Instruction Enum</p>
+    <p>The first step is to define a function, which will load the XML file and parse it using the <code>roxmltree</code> rust library.</p>
+    <p>The documents root element is now put into a recursive parse_children function, which will return a vector of the Instruction Enum.</p>
     <p>Ultimately, all instructions are processed using a loop. Since there's no implementation for a root instruction currently, the top-level instructions must be directly executed.</p>
     <pre><code class="language-rust">
         pub fn execute(path: &Path) -> Box<dyn Any> {
