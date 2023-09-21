@@ -12,20 +12,13 @@
     <p>The objective of this miniproject is to design a compact parser capable of interpreting custom-defined XML tags. This parser will generate an ordered instruction tree. As each instruction is executed, the results will seamlessly flow to the subsequent instruction, creating a pipeline-like execution flow.</p>
     <p>The first step is to define a function, which will load the XML file and parse it using the <code>roxmltree</code> rust library.</p>
     <p>The documents root element is now put into a recursive parse_children function, which will return a vector of the Instruction Enum.</p>
-    <p>Ultimately, all instructions are processed using a loop. Since there's no implementation for a root instruction currently, the top-level instructions must be directly executed.</p>
+    <p>This Vector should consist of a single Instruction entry with the RootInstruction struct inside, which will be returned by the parse_file function.</p>
     <pre><code class="language-rust">
-        pub fn execute(path: &Path) -> Box<dyn Any> {
-            let text = fs::read_to_string(path).unwrap();
-            let doc = roxmltree::Document::parse(text.as_str()).unwrap();
-        
+        pub fn parse_file(path: &Path) -> Result<Instruction, Box<dyn Error>> {
+            let text = fs::read_to_string(path)?;
+            let doc = roxmltree::Document::parse(text.as_str())?;
             let root_element = doc.root_element();
-        
-            let instructions: Vec<Instruction> = parse_children(&root_element);
-            let mut loop_value: Box<dyn Any> = Box::new(());
-            for ele in instructions.iter() {
-                loop_value = ele.execute(loop_value);
-            }
-            loop_value
+            Ok(parse_children(&root_element).first().unwrap().clone())
         }
     </code></pre>
     <h2>Instruction Enum</h2>
@@ -33,12 +26,13 @@
     <pre><code class="language-rust">
         #[derive(Debug, Clone)]
         pub enum Instruction {
+            Root(RootInstruction),
             Input(InputInstruction),
             Step(StepInstruction),
             File(FileInstruction),
             Print(PrintInstruction),
         }
-
+        
         impl Instruction {
             pub fn execute(&self, value: Box<dyn Any>) -> Box<dyn Any> {
                 match self {
@@ -46,6 +40,7 @@
                     Instruction::Step(instruction) => instruction.execute(value),
                     Instruction::File(instruction) => Box::new(instruction.execute()),
                     Instruction::Print(instruction) => Box::new(instruction.execute(value)),
+                    Instruction::Root(instruction) => instruction.execute(),
                 }
             }
         }
@@ -68,12 +63,17 @@
                             None => String::new(),
                         }
                     })))),
-                    "print" => instructions.push(Instruction::Print(PrintInstruction::new(String::from({
-                        match child.text() {
-                            Some(val) => String::from(val),
-                            None => String::new(),
-                        }
-                    })))),
+                    "print" => {
+                        instructions.push(Instruction::Print(PrintInstruction::new(String::from({
+                            match child.text() {
+                                Some(val) => String::from(val),
+                                None => String::new(),
+                            }
+                        }))))
+                    },
+                    "pipeline" => {
+                        instructions.push(Instruction::Root(RootInstruction::new(child.clone())))
+                    },
                     _ => panic!("unknown xml tag"),
                 }
             }
@@ -83,6 +83,25 @@
     <h2>Different Instructions</h2>
     <p>Each instruction has a corresponding struct, which will be used to store the instructions data. The struct will also implement the execute function, which will be called by the parser.</p>
     <pre><code class="language-rust">
+        #[derive(Debug, Clone)]
+        pub struct RootInstruction {
+            pub child_instructions: Vec<Instruction>,
+        }
+
+        impl RootInstruction {
+            pub fn new(child: Node<'_, '_>) -> RootInstruction {
+                RootInstruction { child_instructions: parse_children(&child), }
+            }
+
+            pub fn execute(&self) -> Box<dyn Any> {
+                let mut loop_value: Box<dyn Any> = Box::new(());
+                for ele in self.child_instructions.iter() {
+                    loop_value = ele.execute(loop_value);
+                }
+                loop_value
+            }
+        }
+        
         #[derive(Debug, Clone)]
         pub struct InputInstruction { 
             pub child_instructions: Vec<Instruction>,
