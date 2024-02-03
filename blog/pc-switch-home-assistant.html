@@ -14,8 +14,7 @@
     <h1>Building a remote PC Switch compatible with Home Assistant</h1>
     <a target="_blank" href="https://github.com/lukasmetzner/pc-switch-rs">Github Repository</a>
     <h2>Introduction</h2>
-    <p>The goal of this project is to have a remote switch for my personal workstation, which can be triggered from Home
-        Assistant.</p>
+    <p>The goal of this project is to have a remote switch for my personal workstation, which can be triggered from Home Assistant.</p>
     <h2>General Architecture</h2>
     <pre class="mermaid">
         flowchart TB
@@ -71,10 +70,10 @@
         <li>Raspberry Pi 3B+</li>
         <li>Docker Host (Thinkcentre M-Series)</li>
         <li>Relay Module | SRD-05vdc-sl-c (Currently operated under voltage [need to buy another one])</li>
-        <li>A few jumper cable</li>
+        <li>A few jumper cables</li>
     </ul>
     <h2>Software</h2>
-    <p>The software running on the Raspberry Pi is written in Rust with a custom implementation for the GPIO pins. The Docker host has a very basic Python script to send packets to the TCP socket. Because there is ony one relay which is controlled the server only accepts a single connection at a time.</p>
+    <p>The software operating on the Raspberry Pi is developed in Rust, featuring a custom GPIO pin implementation. A minimalistic Python script on the Docker host handles the transmission of packets to the TCP socket. To manage the single relay effectively, the server is configured to accept only one connection at a time.</p>
     <p>The code for the Rust TCP Server can be found on my Github (<a href="https://github.com/lukasmetzner/pc-switch-rs">pc-switch-rs</a>) and the Python script, which is executed by Home Assistant, is down below.</p>
     <pre><code class="language-python">
 import socket
