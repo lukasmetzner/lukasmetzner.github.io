@@ -381,6 +381,18 @@ function compute() {
 // --- Event Listeners ---
 document.getElementById('year').addEventListener('input', compute);
 
+document.getElementById('year').addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const input = document.getElementById('year');
+  const current = parseInt(input.value) || new Date().getFullYear();
+  const delta = e.deltaY < 0 ? 1 : -1;
+  const newYear = current + delta;
+  if (newYear >= 1583 && newYear <= 9999) {
+    input.value = newYear;
+    compute();
+  }
+});
+
 document.getElementById('today-btn').addEventListener('click', () => {
   const now = new Date();
   document.getElementById('year').value = now.getFullYear();
